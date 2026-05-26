@@ -1,0 +1,34 @@
+const mongoose = require('mongoose');
+
+const memberSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: { type: String, lowercase: true, trim: true },
+    phone: { type: String, required: true, trim: true },
+    gender: { type: String, enum: ['male', 'female', 'other'], default: 'male' },
+    dob: { type: Date },
+    address: { type: String, trim: true },
+
+    membershipPlan: { type: mongoose.Schema.Types.ObjectId, ref: 'MembershipPlan' },
+    trainer: { type: mongoose.Schema.Types.ObjectId, ref: 'Trainer' },
+
+    joinDate: { type: Date, default: Date.now },
+    expiryDate: { type: Date, required: true },
+    status: { type: String, enum: ['active', 'expired', 'inactive'], default: 'active' },
+
+    avatar: { type: String },
+    notes: { type: String },
+  },
+  { timestamps: true }
+);
+
+memberSchema.index({ name: 'text', email: 'text', phone: 'text' });
+
+memberSchema.pre('save', function (next) {
+  if (this.expiryDate && this.expiryDate < new Date()) {
+    this.status = 'expired';
+  }
+  next();
+});
+
+module.exports = mongoose.model('Member', memberSchema);
