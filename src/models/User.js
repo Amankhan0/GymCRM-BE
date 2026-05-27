@@ -7,7 +7,11 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true, minlength: 6, select: false },
     role: { type: String, enum: ['admin', 'trainer'], default: 'admin' },
-    phone: { type: String, trim: true },
+    phone: {
+      type: String,
+      trim: true,
+      match: [/^[6-9]\d{9}$/, 'Phone must be a 10-digit number starting with 6-9'],
+    },
     avatar: { type: String },
     // Each admin signup represents one gym — gymName drives branding throughout the panel.
     gymName: { type: String, required: true, trim: true, default: 'My Gym' },

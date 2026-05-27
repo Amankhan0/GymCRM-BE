@@ -30,7 +30,7 @@ const signup = asyncHandler(async (req, res) => {
 
   const exists = await User.findOne({ email });
   if (exists) {
-    return res.status(400).json({ success: false, message: 'Email already in use' });
+    return res.status(409).json({ success: false, message: 'This email is already registered.' });
   }
 
   const trialEndsAt = new Date();

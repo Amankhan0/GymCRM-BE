@@ -8,7 +8,14 @@ const subscriptionPaymentSchema = new mongoose.Schema(
     durationDays: { type: Number, required: true },
     amount: { type: Number, required: true },
     // What the user fills in after paying via UPI/QR.
-    utr: { type: String, required: true, trim: true },
+    // Globally unique — same UTR can never be re-submitted across any user.
+    utr: {
+      type: String,
+      required: true,
+      trim: true,
+      unique: true,
+      match: [/^[A-Za-z0-9]{6,30}$/, 'UTR must be 6-30 alphanumeric characters'],
+    },
     paidAt: { type: Date, required: true },
     notes: { type: String, trim: true },
 

@@ -38,14 +38,7 @@ const submitRequest = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Payment date/time is required' });
   }
 
-  // Reject duplicate UTRs from the same user — prevents accidental double submissions.
-  const dup = await SubscriptionPayment.findOne({ user: req.user._id, utr: utr.trim() });
-  if (dup) {
-    return res
-      .status(400)
-      .json({ success: false, message: 'This UTR is already submitted — wait for the previous request to be reviewed.' });
-  }
-
+  // UTR global uniqueness + format are enforced at the schema level; error middleware translates E11000.
   const request = await SubscriptionPayment.create({
     user: req.user._id,
     planKey: plan.key,

@@ -14,11 +14,17 @@ const errorHandler = (err, req, res, next) => {
     message = 'Invalid ID format';
   }
 
-  // Mongoose duplicate key
+  // Mongoose duplicate key — 409 Conflict so the client can branch on it (e.g. inline error vs toast).
   if (err.code === 11000) {
-    statusCode = 400;
-    const field = Object.keys(err.keyValue || {})[0] || 'field';
-    message = `Duplicate ${field}`;
+    statusCode = 409;
+    const fields = Object.keys(err.keyValue || err.keyPattern || {});
+    if (fields.includes('utr')) {
+      message = 'This UTR is already submitted — please double-check or wait for review.';
+    } else if (fields.includes('email')) {
+      message = 'This email is already registered.';
+    } else {
+      message = `Duplicate ${fields[0] || 'field'}`;
+    }
   }
 
   // Mongoose validation

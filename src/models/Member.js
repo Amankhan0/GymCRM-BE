@@ -6,7 +6,12 @@ const memberSchema = new mongoose.Schema(
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     name: { type: String, required: true, trim: true },
     email: { type: String, lowercase: true, trim: true },
-    phone: { type: String, required: true, trim: true },
+    phone: {
+      type: String,
+      required: true,
+      trim: true,
+      match: [/^[6-9]\d{9}$/, 'Phone must be a 10-digit number starting with 6-9'],
+    },
     gender: { type: String, enum: ['male', 'female', 'other'], default: 'male' },
     dob: { type: Date },
     address: { type: String, trim: true },
@@ -25,6 +30,12 @@ const memberSchema = new mongoose.Schema(
 );
 
 memberSchema.index({ name: 'text', email: 'text', phone: 'text' });
+
+// Per-gym unique email. Partial index so members without an email don't collide on null.
+memberSchema.index(
+  { owner: 1, email: 1 },
+  { unique: true, partialFilterExpression: { email: { $type: 'string' } } }
+);
 
 memberSchema.pre('save', function (next) {
   if (this.expiryDate && this.expiryDate < new Date()) {
