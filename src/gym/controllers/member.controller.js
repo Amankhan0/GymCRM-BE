@@ -1,6 +1,6 @@
 const Member = require('../models/Member');
-const asyncHandler = require('../utils/asyncHandler');
-const { success } = require('../utils/apiResponse');
+const asyncHandler = require('../../utils/asyncHandler');
+const { success } = require('../../utils/apiResponse');
 
 // All queries are scoped to the logged-in owner so each gym only ever sees its own data.
 const ownerScope = (req) => ({ owner: req.user._id });

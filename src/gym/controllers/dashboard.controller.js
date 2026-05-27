@@ -2,8 +2,8 @@ const Member = require('../models/Member');
 const Trainer = require('../models/Trainer');
 const Payment = require('../models/Payment');
 const Attendance = require('../models/Attendance');
-const asyncHandler = require('../utils/asyncHandler');
-const { success } = require('../utils/apiResponse');
+const asyncHandler = require('../../utils/asyncHandler');
+const { success } = require('../../utils/apiResponse');
 
 const startOfDay = (d) => {
   const x = new Date(d);

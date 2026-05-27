@@ -9,16 +9,21 @@ const { requireActiveSubscription } = require('./middleware/subscription.middlew
 const { globalLimiter } = require('./middleware/rateLimit.middleware');
 const { checkBlock } = require('./middleware/progressiveBlock.middleware');
 
-const authRoutes = require('./routes/auth.routes');
-const memberRoutes = require('./routes/member.routes');
-const trainerRoutes = require('./routes/trainer.routes');
-const attendanceRoutes = require('./routes/attendance.routes');
-const planRoutes = require('./routes/plan.routes');
-const paymentRoutes = require('./routes/payment.routes');
-const dashboardRoutes = require('./routes/dashboard.routes');
+// Gym product routes — gym-only modules live under src/gym/
+const gymAuthRoutes = require('./gym/routes/auth.routes');
+const memberRoutes = require('./gym/routes/member.routes');
+const trainerRoutes = require('./gym/routes/trainer.routes');
+const attendanceRoutes = require('./gym/routes/attendance.routes');
+const planRoutes = require('./gym/routes/plan.routes');
+const paymentRoutes = require('./gym/routes/payment.routes');
+const dashboardRoutes = require('./gym/routes/dashboard.routes');
+
+// Shared / cross-product routes
 const profileRoutes = require('./routes/profile.routes');
 const subscriptionRoutes = require('./routes/subscription.routes');
 const superadminRoutes = require('./routes/superadmin.routes');
+
+// B2B product routes
 const b2bRoutes = require('./b2b/routes');
 
 const app = express();
@@ -57,7 +62,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // Public + always-accessible routes (no subscription gate, so an expired user can still renew).
-app.use('/api/auth', authRoutes);
+// Note: /api/auth is the GYM auth endpoint (kept for backwards compatibility with the gym client);
+// B2B has its own auth at /api/b2b/auth.
+app.use('/api/auth', gymAuthRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/superadmin', superadminRoutes);

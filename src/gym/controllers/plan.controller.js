@@ -1,6 +1,6 @@
 const MembershipPlan = require('../models/MembershipPlan');
-const asyncHandler = require('../utils/asyncHandler');
-const { success } = require('../utils/apiResponse');
+const asyncHandler = require('../../utils/asyncHandler');
+const { success } = require('../../utils/apiResponse');
 
 const ownerScope = (req) => ({ owner: req.user._id });
 

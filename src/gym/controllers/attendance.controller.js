@@ -1,7 +1,7 @@
 const Attendance = require('../models/Attendance');
 const Member = require('../models/Member');
-const asyncHandler = require('../utils/asyncHandler');
-const { success } = require('../utils/apiResponse');
+const asyncHandler = require('../../utils/asyncHandler');
+const { success } = require('../../utils/apiResponse');
 
 // UTC-based so the server's local timezone doesn't disagree with what the client thinks "today" is.
 const startOfDay = (d) => {

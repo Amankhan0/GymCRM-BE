@@ -4,7 +4,7 @@ const {
   getRevenueChart,
   getAttendanceChart,
 } = require('../controllers/dashboard.controller');
-const { protect } = require('../middleware/auth.middleware');
+const { protect } = require('../../middleware/auth.middleware');
 
 router.use(protect);
 

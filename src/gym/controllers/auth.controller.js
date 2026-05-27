@@ -1,7 +1,7 @@
-const User = require('../models/User');
-const generateToken = require('../utils/generateToken');
-const asyncHandler = require('../utils/asyncHandler');
-const { success } = require('../utils/apiResponse');
+const User = require('../../models/User');
+const generateToken = require('../../utils/generateToken');
+const asyncHandler = require('../../utils/asyncHandler');
+const { success } = require('../../utils/apiResponse');
 
 const TRIAL_DAYS = 7;
 
