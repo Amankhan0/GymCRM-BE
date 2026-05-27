@@ -1,9 +1,22 @@
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
 const SubscriptionPayment = require('../models/SubscriptionPayment');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
 
+// Constant-time string compare. Pads to equal length first to avoid leaking length via timing.
+const safeEqual = (a, b) => {
+  const max = Math.max(Buffer.byteLength(a), Buffer.byteLength(b));
+  const ab = Buffer.alloc(max);
+  const bb = Buffer.alloc(max);
+  ab.write(a);
+  bb.write(b);
+  return crypto.timingSafeEqual(ab, bb) && a.length === b.length;
+};
+
 // POST /api/superadmin/login  — password-only login (the only super-admin is the platform owner).
+// On success we issue a short-lived JWT so subsequent calls don't have to ship the password.
 const login = asyncHandler(async (req, res) => {
   const { password } = req.body;
   if (!process.env.SUPERADMIN_PASSWORD) {
@@ -11,11 +24,15 @@ const login = asyncHandler(async (req, res) => {
       .status(500)
       .json({ success: false, message: 'SUPERADMIN_PASSWORD env var is not configured' });
   }
-  if (password !== process.env.SUPERADMIN_PASSWORD) {
+  if (typeof password !== 'string' || !safeEqual(password, process.env.SUPERADMIN_PASSWORD)) {
     return res.status(401).json({ success: false, message: 'Invalid password' });
   }
-  // No JWT — the client will send the password as a header on every super-admin call.
-  return success(res, { token: password }, 'Authenticated');
+  const token = jwt.sign(
+    { role: 'superadmin' },
+    process.env.JWT_SECRET,
+    { algorithm: 'HS256', expiresIn: '2h' }
+  );
+  return success(res, { token }, 'Authenticated');
 });
 
 // GET /api/superadmin/stats

@@ -33,7 +33,9 @@ const listPayments = asyncHandler(async (req, res) => {
 
 // POST /api/payments  — records a payment AND extends member expiry by the plan's duration.
 const createPayment = asyncHandler(async (req, res) => {
-  const { memberId, planId, amount, paymentMethod, transactionId, notes } = req.body;
+  // NOTE: `amount` is deliberately NOT pulled from req.body. The server uses the plan's price
+  // as the source of truth so a malicious client can't pay ₹1 for a ₹7999 plan.
+  const { memberId, planId, paymentMethod, transactionId, notes } = req.body;
   if (!memberId || !planId) {
     return res.status(400).json({ success: false, message: 'memberId and planId are required' });
   }
@@ -49,7 +51,7 @@ const createPayment = asyncHandler(async (req, res) => {
     owner: req.user._id,
     member: memberId,
     plan: planId,
-    amount: amount ?? plan.price,
+    amount: plan.price,
     paymentMethod,
     transactionId,
     notes,
@@ -69,9 +71,13 @@ const createPayment = asyncHandler(async (req, res) => {
 });
 
 const updatePayment = asyncHandler(async (req, res) => {
+  // Only mutable bookkeeping fields. `amount`, `member`, `plan`, `owner` are off-limits post-create.
+  const UPDATABLE = ['paymentMethod', 'transactionId', 'notes', 'status'];
+  const patch = Object.fromEntries(Object.entries(req.body || {}).filter(([k]) => UPDATABLE.includes(k)));
+
   const payment = await Payment.findOneAndUpdate(
     { _id: req.params.id, ...ownerScope(req) },
-    req.body,
+    patch,
     { new: true, runValidators: true }
   );
   if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });

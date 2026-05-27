@@ -1,10 +1,12 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const helmet = require('helmet');
 
 const { notFound, errorHandler } = require('./middleware/error.middleware');
 const { protect } = require('./middleware/auth.middleware');
 const { requireActiveSubscription } = require('./middleware/subscription.middleware');
+const { globalLimiter } = require('./middleware/rateLimit.middleware');
 
 const authRoutes = require('./routes/auth.routes');
 const memberRoutes = require('./routes/member.routes');
@@ -19,6 +21,14 @@ const superadminRoutes = require('./routes/superadmin.routes');
 
 const app = express();
 
+// Render terminates TLS at the proxy. trust proxy=1 lets express-rate-limit see the real client IP
+// instead of bucketing every request under the proxy IP.
+app.set('trust proxy', 1);
+
+// Helmet sets a battery of safe-default response headers (X-Content-Type-Options, HSTS, etc).
+// CSP is disabled since this is an API server — the SPA hosts its own CSP on Vercel.
+app.use(helmet({ contentSecurityPolicy: false }));
+
 app.use(
   cors({
     origin: process.env.CLIENT_URL || 'http://localhost:3000',
@@ -27,6 +37,9 @@ app.use(
 );
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Global per-IP cap — covers every endpoint, including ones with no route-level limit.
+app.use(globalLimiter);
 
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));

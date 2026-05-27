@@ -8,9 +8,10 @@ const {
   rejectRequest,
 } = require('../controllers/superadmin.controller');
 const { superadminAuth } = require('../middleware/superadmin.middleware');
+const { superLoginLimiter } = require('../middleware/rateLimit.middleware');
 
-// Login is the only unauthenticated route — it's what gives the caller the password to use.
-router.post('/login', login);
+// Login is rate-limited (5 / 15 min / IP) since the password is the only auth factor.
+router.post('/login', superLoginLimiter, login);
 
 router.use(superadminAuth);
 

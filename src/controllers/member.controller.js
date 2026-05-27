@@ -5,6 +5,16 @@ const { success } = require('../utils/apiResponse');
 // All queries are scoped to the logged-in owner so each gym only ever sees its own data.
 const ownerScope = (req) => ({ owner: req.user._id });
 
+// Allowlist of writable fields. Anything else in req.body is dropped so an attacker can't
+// override `owner`, `_id`, `createdAt`, etc. via mass assignment.
+const ALLOWED = [
+  'name', 'email', 'phone', 'gender', 'dob', 'address',
+  'membershipPlan', 'trainer', 'joinDate', 'expiryDate',
+  'status', 'avatar', 'notes',
+];
+const pick = (body) =>
+  Object.fromEntries(Object.entries(body || {}).filter(([k]) => ALLOWED.includes(k)));
+
 // GET /api/members?search=&status=&pendingFees=&page=&limit=
 const listMembers = asyncHandler(async (req, res) => {
   const { search = '', status, pendingFees, page = 1, limit = 10 } = req.query;
@@ -51,14 +61,14 @@ const getMember = asyncHandler(async (req, res) => {
 });
 
 const createMember = asyncHandler(async (req, res) => {
-  const member = await Member.create({ ...req.body, owner: req.user._id });
+  const member = await Member.create({ ...pick(req.body), owner: req.user._id });
   return success(res, member, 'Member created', 201);
 });
 
 const updateMember = asyncHandler(async (req, res) => {
   const member = await Member.findOneAndUpdate(
     { _id: req.params.id, ...ownerScope(req) },
-    req.body,
+    pick(req.body),
     { new: true, runValidators: true }
   );
   if (!member) return res.status(404).json({ success: false, message: 'Member not found' });

@@ -5,6 +5,14 @@ const { success } = require('../utils/apiResponse');
 
 const ownerScope = (req) => ({ owner: req.user._id });
 
+// Allowlist of writable fields — protects against mass assignment of `owner`, `_id`, `user`, etc.
+const ALLOWED = [
+  'name', 'email', 'phone', 'gender', 'specialization',
+  'experience', 'salary', 'joinDate', 'status', 'avatar', 'bio',
+];
+const pick = (body) =>
+  Object.fromEntries(Object.entries(body || {}).filter(([k]) => ALLOWED.includes(k)));
+
 const listTrainers = asyncHandler(async (req, res) => {
   const { search = '', page = 1, limit = 10 } = req.query;
   const filter = { ...ownerScope(req) };
@@ -44,14 +52,14 @@ const getTrainer = asyncHandler(async (req, res) => {
 });
 
 const createTrainer = asyncHandler(async (req, res) => {
-  const trainer = await Trainer.create({ ...req.body, owner: req.user._id });
+  const trainer = await Trainer.create({ ...pick(req.body), owner: req.user._id });
   return success(res, trainer, 'Trainer created', 201);
 });
 
 const updateTrainer = asyncHandler(async (req, res) => {
   const trainer = await Trainer.findOneAndUpdate(
     { _id: req.params.id, ...ownerScope(req) },
-    req.body,
+    pick(req.body),
     { new: true, runValidators: true }
   );
   if (!trainer) return res.status(404).json({ success: false, message: 'Trainer not found' });

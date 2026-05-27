@@ -1,16 +1,22 @@
-// Single-secret auth for the platform owner. The client sends the password as
-// X-Superadmin-Password on every request. Login endpoint is intentionally exempt.
+const jwt = require('jsonwebtoken');
+
+// Super-admin requests must carry a short-lived JWT issued by POST /api/superadmin/login.
+// The token's `role` claim must be `superadmin`.
 const superadminAuth = (req, res, next) => {
-  if (!process.env.SUPERADMIN_PASSWORD) {
-    return res
-      .status(500)
-      .json({ success: false, message: 'SUPERADMIN_PASSWORD env var is not configured' });
-  }
-  const provided = req.headers['x-superadmin-password'];
-  if (provided !== process.env.SUPERADMIN_PASSWORD) {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, message: 'Unauthorized' });
   }
-  next();
+  const token = header.slice(7);
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    if (payload.role !== 'superadmin') {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: 'Invalid or expired token' });
+  }
 };
 
 module.exports = { superadminAuth };
