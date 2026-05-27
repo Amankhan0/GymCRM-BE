@@ -19,6 +19,7 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const profileRoutes = require('./routes/profile.routes');
 const subscriptionRoutes = require('./routes/subscription.routes');
 const superadminRoutes = require('./routes/superadmin.routes');
+const b2bRoutes = require('./b2b/routes');
 
 const app = express();
 
@@ -60,6 +61,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/superadmin', superadminRoutes);
+
+// B2B product — all routes namespaced under /api/b2b. The product guard middleware on each
+// route ensures gym users can't accidentally hit b2b endpoints (and vice versa).
+app.use('/api/b2b', b2bRoutes);
 
 // Data routes — protected AND gated by an active trial / subscription.
 const dataGate = [protect, requireActiveSubscription];

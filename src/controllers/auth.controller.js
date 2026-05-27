@@ -28,7 +28,8 @@ const signup = asyncHandler(async (req, res) => {
       .json({ success: false, message: 'Name, email, password and gym name are required' });
   }
 
-  const exists = await User.findOne({ email });
+  // Per-product uniqueness — same email may exist in b2b separately, that's allowed.
+  const exists = await User.findOne({ email, product: 'gym' });
   if (exists) {
     return res.status(409).json({ success: false, message: 'This email is already registered.' });
   }
@@ -43,6 +44,7 @@ const signup = asyncHandler(async (req, res) => {
     role: 'admin',
     phone,
     gymName: gymName.trim(),
+    product: 'gym',
     trialEndsAt,
   });
 
@@ -57,7 +59,7 @@ const login = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Email and password are required' });
   }
 
-  const user = await User.findOne({ email }).select('+password');
+  const user = await User.findOne({ email, product: 'gym' }).select('+password');
   if (!user || !(await user.matchPassword(password))) {
     return res.status(401).json({ success: false, message: 'Invalid email or password' });
   }
