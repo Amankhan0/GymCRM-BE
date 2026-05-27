@@ -3,6 +3,8 @@ const generateToken = require('../utils/generateToken');
 const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
 
+const TRIAL_DAYS = 7;
+
 const publicUser = (user) => ({
   id: user._id,
   name: user.name,
@@ -11,10 +13,12 @@ const publicUser = (user) => ({
   phone: user.phone,
   gymName: user.gymName,
   avatar: user.avatar,
+  trialEndsAt: user.trialEndsAt,
+  subscriptionEndsAt: user.subscriptionEndsAt,
+  subscriptionState: user.subscriptionState ? user.subscriptionState() : 'expired',
 });
 
-// POST /api/auth/signup
-// Trainers are managed as resources by admins, not as login users — so signup always creates an admin.
+// POST /api/auth/signup — also starts the 7-day free trial.
 const signup = asyncHandler(async (req, res) => {
   const { name, email, password, phone, gymName } = req.body;
 
@@ -29,6 +33,9 @@ const signup = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Email already in use' });
   }
 
+  const trialEndsAt = new Date();
+  trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
+
   const user = await User.create({
     name,
     email,
@@ -36,6 +43,7 @@ const signup = asyncHandler(async (req, res) => {
     role: 'admin',
     phone,
     gymName: gymName.trim(),
+    trialEndsAt,
   });
 
   const token = generateToken(user._id, user.role);

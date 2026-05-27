@@ -11,6 +11,11 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String },
     // Each admin signup represents one gym — gymName drives branding throughout the panel.
     gymName: { type: String, required: true, trim: true, default: 'My Gym' },
+
+    // Subscription gating. trialEndsAt is set on signup (+7 days). subscriptionEndsAt is
+    // bumped each time a SubscriptionPayment is approved by the platform super-admin.
+    trialEndsAt: { type: Date },
+    subscriptionEndsAt: { type: Date },
   },
   { timestamps: true }
 );
@@ -24,6 +29,22 @@ userSchema.pre('save', async function (next) {
 
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
+};
+
+// Treat the user as having access if either the trial or a paid subscription is still in the future.
+userSchema.methods.hasAccess = function () {
+  const now = new Date();
+  if (this.subscriptionEndsAt && this.subscriptionEndsAt > now) return true;
+  if (this.trialEndsAt && this.trialEndsAt > now) return true;
+  return false;
+};
+
+// Returns 'trial' | 'active' | 'expired' for the client to render the right state.
+userSchema.methods.subscriptionState = function () {
+  const now = new Date();
+  if (this.subscriptionEndsAt && this.subscriptionEndsAt > now) return 'active';
+  if (this.trialEndsAt && this.trialEndsAt > now) return 'trial';
+  return 'expired';
 };
 
 module.exports = mongoose.model('User', userSchema);
