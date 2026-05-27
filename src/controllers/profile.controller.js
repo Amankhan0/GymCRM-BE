@@ -4,7 +4,7 @@ const { success } = require('../utils/apiResponse');
 
 // PUT /api/profile
 const updateProfile = asyncHandler(async (req, res) => {
-  const { name, email, phone, avatar } = req.body;
+  const { name, email, phone, avatar, gymName } = req.body;
   const user = await User.findById(req.user._id);
   if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
@@ -12,11 +12,20 @@ const updateProfile = asyncHandler(async (req, res) => {
   if (email !== undefined) user.email = email;
   if (phone !== undefined) user.phone = phone;
   if (avatar !== undefined) user.avatar = avatar;
+  if (gymName !== undefined) user.gymName = gymName;
 
   await user.save();
   return success(
     res,
-    { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.phone, avatar: user.avatar },
+    {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      avatar: user.avatar,
+      gymName: user.gymName,
+    },
     'Profile updated'
   );
 });

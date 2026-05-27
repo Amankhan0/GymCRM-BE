@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const attendanceSchema = new mongoose.Schema(
   {
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     member: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', required: true },
     date: { type: Date, default: Date.now },
     checkIn: { type: Date, default: Date.now },

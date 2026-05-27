@@ -5,7 +5,6 @@ const Attendance = require('../models/Attendance');
 const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
 
-// UTC-based so it stays in sync with the client (which uses toISOString for "today").
 const startOfDay = (d) => {
   const x = new Date(d);
   x.setUTCHours(0, 0, 0, 0);
@@ -17,8 +16,11 @@ const endOfDay = (d) => {
   return x;
 };
 
+const ownerScope = (req) => ({ owner: req.user._id });
+
 // GET /api/dashboard/stats
 const getStats = asyncHandler(async (req, res) => {
+  const scope = ownerScope(req);
   const now = new Date();
   const sevenDaysFromNow = new Date();
   sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
@@ -26,27 +28,29 @@ const getStats = asyncHandler(async (req, res) => {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-  // "Pending fees" = expiry already passed OR expiring within next 7 days.
-  // These are the people the owner actually needs to chase for payment.
   const [
     totalMembers,
+    activeMembers,
     pendingFees,
     newMembersThisMonth,
     totalTrainers,
     todaysAttendance,
     revenueAggregate,
   ] = await Promise.all([
-    Member.countDocuments(),
-    Member.countDocuments({ expiryDate: { $lte: sevenDaysFromNow } }),
-    Member.countDocuments({ joinDate: { $gte: startOfMonth } }),
-    Trainer.countDocuments({ status: 'active' }),
+    Member.countDocuments(scope),
+    Member.countDocuments({ ...scope, status: 'active' }),
+    Member.countDocuments({ ...scope, expiryDate: { $lte: sevenDaysFromNow } }),
+    Member.countDocuments({ ...scope, joinDate: { $gte: startOfMonth } }),
+    Trainer.countDocuments({ ...scope, status: 'active' }),
     Attendance.countDocuments({
+      ...scope,
       date: { $gte: startOfDay(now), $lte: endOfDay(now) },
       status: 'present',
     }),
     Payment.aggregate([
       {
         $match: {
+          ...scope,
           status: 'paid',
           paymentDate: { $gte: startOfMonth, $lte: endOfMonth },
         },
@@ -59,6 +63,7 @@ const getStats = asyncHandler(async (req, res) => {
 
   return success(res, {
     totalMembers,
+    activeMembers,
     pendingFees,
     newMembersThisMonth,
     totalTrainers,
@@ -67,7 +72,7 @@ const getStats = asyncHandler(async (req, res) => {
   });
 });
 
-// GET /api/dashboard/revenue-chart  — last 6 months
+// GET /api/dashboard/revenue-chart  — last 6 months for this gym
 const getRevenueChart = asyncHandler(async (req, res) => {
   const months = [];
   const today = new Date();
@@ -75,7 +80,7 @@ const getRevenueChart = asyncHandler(async (req, res) => {
     const start = new Date(today.getFullYear(), today.getMonth() - i, 1);
     const end = new Date(today.getFullYear(), today.getMonth() - i + 1, 0, 23, 59, 59);
     const agg = await Payment.aggregate([
-      { $match: { status: 'paid', paymentDate: { $gte: start, $lte: end } } },
+      { $match: { ...ownerScope(req), status: 'paid', paymentDate: { $gte: start, $lte: end } } },
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]);
     months.push({
@@ -86,7 +91,7 @@ const getRevenueChart = asyncHandler(async (req, res) => {
   return success(res, months);
 });
 
-// GET /api/dashboard/attendance-chart  — last 7 days
+// GET /api/dashboard/attendance-chart  — last 7 days for this gym
 const getAttendanceChart = asyncHandler(async (req, res) => {
   const days = [];
   const today = new Date();
@@ -94,6 +99,7 @@ const getAttendanceChart = asyncHandler(async (req, res) => {
     const day = new Date(today);
     day.setDate(today.getDate() - i);
     const count = await Attendance.countDocuments({
+      ...ownerScope(req),
       date: { $gte: startOfDay(day), $lte: endOfDay(day) },
       status: 'present',
     });

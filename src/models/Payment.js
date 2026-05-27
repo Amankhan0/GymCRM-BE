@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema(
   {
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     member: { type: mongoose.Schema.Types.ObjectId, ref: 'Member', required: true },
     plan: { type: mongoose.Schema.Types.ObjectId, ref: 'MembershipPlan', required: true },
     amount: { type: Number, required: true, min: 0 },

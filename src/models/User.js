@@ -9,6 +9,8 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ['admin', 'trainer'], default: 'admin' },
     phone: { type: String, trim: true },
     avatar: { type: String },
+    // Each admin signup represents one gym — gymName drives branding throughout the panel.
+    gymName: { type: String, required: true, trim: true, default: 'My Gym' },
   },
   { timestamps: true }
 );

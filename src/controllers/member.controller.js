@@ -2,10 +2,13 @@ const Member = require('../models/Member');
 const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
 
+// All queries are scoped to the logged-in owner so each gym only ever sees its own data.
+const ownerScope = (req) => ({ owner: req.user._id });
+
 // GET /api/members?search=&status=&pendingFees=&page=&limit=
 const listMembers = asyncHandler(async (req, res) => {
   const { search = '', status, pendingFees, page = 1, limit = 10 } = req.query;
-  const filter = {};
+  const filter = { ...ownerScope(req) };
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: 'i' } },
@@ -15,7 +18,6 @@ const listMembers = asyncHandler(async (req, res) => {
   }
   if (status) filter.status = status;
   if (pendingFees === 'true') {
-    // Same definition the dashboard uses: expiry already passed OR within next 7 days.
     const sevenDaysFromNow = new Date();
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
     filter.expiryDate = { $lte: sevenDaysFromNow };
@@ -40,34 +42,31 @@ const listMembers = asyncHandler(async (req, res) => {
   });
 });
 
-// GET /api/members/:id
 const getMember = asyncHandler(async (req, res) => {
-  const member = await Member.findById(req.params.id)
+  const member = await Member.findOne({ _id: req.params.id, ...ownerScope(req) })
     .populate('membershipPlan')
     .populate('trainer');
   if (!member) return res.status(404).json({ success: false, message: 'Member not found' });
   return success(res, member);
 });
 
-// POST /api/members
 const createMember = asyncHandler(async (req, res) => {
-  const member = await Member.create(req.body);
+  const member = await Member.create({ ...req.body, owner: req.user._id });
   return success(res, member, 'Member created', 201);
 });
 
-// PUT /api/members/:id
 const updateMember = asyncHandler(async (req, res) => {
-  const member = await Member.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const member = await Member.findOneAndUpdate(
+    { _id: req.params.id, ...ownerScope(req) },
+    req.body,
+    { new: true, runValidators: true }
+  );
   if (!member) return res.status(404).json({ success: false, message: 'Member not found' });
   return success(res, member, 'Member updated');
 });
 
-// DELETE /api/members/:id
 const deleteMember = asyncHandler(async (req, res) => {
-  const member = await Member.findByIdAndDelete(req.params.id);
+  const member = await Member.findOneAndDelete({ _id: req.params.id, ...ownerScope(req) });
   if (!member) return res.status(404).json({ success: false, message: 'Member not found' });
   return success(res, null, 'Member deleted');
 });

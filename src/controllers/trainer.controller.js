@@ -3,10 +3,11 @@ const Member = require('../models/Member');
 const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
 
-// GET /api/trainers?search=&page=&limit=
+const ownerScope = (req) => ({ owner: req.user._id });
+
 const listTrainers = asyncHandler(async (req, res) => {
   const { search = '', page = 1, limit = 10 } = req.query;
-  const filter = {};
+  const filter = { ...ownerScope(req) };
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: 'i' } },
@@ -18,7 +19,6 @@ const listTrainers = asyncHandler(async (req, res) => {
 
   const skip = (Number(page) - 1) * Number(limit);
   const [items, total] = await Promise.all([
-    // Populate just the _id of assigned members so the client can show a count without bloating the payload.
     Trainer.find(filter)
       .populate({ path: 'assignedMembers', select: '_id' })
       .sort({ createdAt: -1 })
@@ -35,35 +35,36 @@ const listTrainers = asyncHandler(async (req, res) => {
   });
 });
 
-// GET /api/trainers/:id
 const getTrainer = asyncHandler(async (req, res) => {
-  const trainer = await Trainer.findById(req.params.id).populate('assignedMembers');
+  const trainer = await Trainer.findOne({ _id: req.params.id, ...ownerScope(req) }).populate(
+    'assignedMembers'
+  );
   if (!trainer) return res.status(404).json({ success: false, message: 'Trainer not found' });
   return success(res, trainer);
 });
 
-// POST /api/trainers
 const createTrainer = asyncHandler(async (req, res) => {
-  const trainer = await Trainer.create(req.body);
+  const trainer = await Trainer.create({ ...req.body, owner: req.user._id });
   return success(res, trainer, 'Trainer created', 201);
 });
 
-// PUT /api/trainers/:id
 const updateTrainer = asyncHandler(async (req, res) => {
-  const trainer = await Trainer.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const trainer = await Trainer.findOneAndUpdate(
+    { _id: req.params.id, ...ownerScope(req) },
+    req.body,
+    { new: true, runValidators: true }
+  );
   if (!trainer) return res.status(404).json({ success: false, message: 'Trainer not found' });
   return success(res, trainer, 'Trainer updated');
 });
 
-// DELETE /api/trainers/:id
 const deleteTrainer = asyncHandler(async (req, res) => {
-  const trainer = await Trainer.findByIdAndDelete(req.params.id);
+  const trainer = await Trainer.findOneAndDelete({ _id: req.params.id, ...ownerScope(req) });
   if (!trainer) return res.status(404).json({ success: false, message: 'Trainer not found' });
-  // unassign trainer from members
-  await Member.updateMany({ trainer: req.params.id }, { $unset: { trainer: 1 } });
+  await Member.updateMany(
+    { trainer: req.params.id, ...ownerScope(req) },
+    { $unset: { trainer: 1 } }
+  );
   return success(res, null, 'Trainer deleted');
 });
 

@@ -4,10 +4,11 @@ const MembershipPlan = require('../models/MembershipPlan');
 const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
 
-// GET /api/payments
+const ownerScope = (req) => ({ owner: req.user._id });
+
 const listPayments = asyncHandler(async (req, res) => {
   const { status, memberId, page = 1, limit = 10 } = req.query;
-  const filter = {};
+  const filter = { ...ownerScope(req) };
   if (status) filter.status = status;
   if (memberId) filter.member = memberId;
 
@@ -37,13 +38,15 @@ const createPayment = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'memberId and planId are required' });
   }
 
-  const member = await Member.findById(memberId);
+  // Confirm the member and plan both belong to this gym — defence against cross-tenant tampering.
+  const member = await Member.findOne({ _id: memberId, ...ownerScope(req) });
   if (!member) return res.status(404).json({ success: false, message: 'Member not found' });
 
-  const plan = await MembershipPlan.findById(planId);
+  const plan = await MembershipPlan.findOne({ _id: planId, ...ownerScope(req) });
   if (!plan) return res.status(404).json({ success: false, message: 'Plan not found' });
 
   const payment = await Payment.create({
+    owner: req.user._id,
     member: memberId,
     plan: planId,
     amount: amount ?? plan.price,
@@ -53,7 +56,6 @@ const createPayment = asyncHandler(async (req, res) => {
     status: 'paid',
   });
 
-  // Extend expiry from max(today, currentExpiry) by plan duration
   const baseline = !member.expiryDate || member.expiryDate < new Date() ? new Date() : member.expiryDate;
   const newExpiry = new Date(baseline);
   newExpiry.setDate(newExpiry.getDate() + plan.durationInDays);
@@ -66,19 +68,18 @@ const createPayment = asyncHandler(async (req, res) => {
   return success(res, payment, 'Payment recorded', 201);
 });
 
-// PUT /api/payments/:id
 const updatePayment = asyncHandler(async (req, res) => {
-  const payment = await Payment.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
+  const payment = await Payment.findOneAndUpdate(
+    { _id: req.params.id, ...ownerScope(req) },
+    req.body,
+    { new: true, runValidators: true }
+  );
   if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
   return success(res, payment, 'Payment updated');
 });
 
-// DELETE /api/payments/:id
 const deletePayment = asyncHandler(async (req, res) => {
-  const payment = await Payment.findByIdAndDelete(req.params.id);
+  const payment = await Payment.findOneAndDelete({ _id: req.params.id, ...ownerScope(req) });
   if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
   return success(res, null, 'Payment deleted');
 });

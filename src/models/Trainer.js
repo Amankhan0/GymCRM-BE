@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const trainerSchema = new mongoose.Schema(
   {
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     name: { type: String, required: true, trim: true },
     email: { type: String, lowercase: true, trim: true },
     phone: { type: String, required: true, trim: true },

@@ -1,5 +1,5 @@
 /**
- * Seeds the database with a starter set of users, plans, trainers, members, payments and attendance.
+ * Seeds the database with a starter set of data for ONE gym (the seed admin user).
  * Run with:  yarn seed   (inside /server)
  * WARNING: This will WIPE existing collections.
  */
@@ -33,14 +33,23 @@ const addDays = (d, n) => {
       Attendance.deleteMany({}),
     ]);
 
-    console.log('Creating admin user...');
-    await User.create([
-      { name: 'Admin User', email: 'admin@gym.com', password: 'admin123', role: 'admin', phone: '9999999999' },
-    ]);
+    console.log('Creating admin user (gym owner)...');
+    const admin = await User.create({
+      name: 'Admin User',
+      email: 'admin@gym.com',
+      password: 'admin123',
+      role: 'admin',
+      phone: '9999999999',
+      gymName: 'Iron Paradise',
+    });
+
+    // Everything below is owned by the seed admin so it scopes correctly.
+    const owner = admin._id;
 
     console.log('Creating membership plans...');
     const plans = await MembershipPlan.create([
       {
+        owner,
         name: 'Monthly',
         description: 'Access to all equipment, 1 month',
         duration: 'monthly',
@@ -49,6 +58,7 @@ const addDays = (d, n) => {
         features: ['Gym access', 'Locker', '1 trainer session'],
       },
       {
+        owner,
         name: 'Quarterly',
         description: '3-month membership with extra perks',
         duration: 'quarterly',
@@ -57,6 +67,7 @@ const addDays = (d, n) => {
         features: ['Gym access', 'Locker', '5 trainer sessions', 'Nutrition guide'],
       },
       {
+        owner,
         name: 'Yearly',
         description: 'Best value, full year access',
         duration: 'yearly',
@@ -69,6 +80,7 @@ const addDays = (d, n) => {
     console.log('Creating trainers...');
     const trainers = await Trainer.create([
       {
+        owner,
         name: 'Coach Mike',
         email: 'mike@gym.com',
         phone: '8888888888',
@@ -78,6 +90,7 @@ const addDays = (d, n) => {
         bio: 'Former powerlifting champion. Loves heavy compound lifts.',
       },
       {
+        owner,
         name: 'Coach Sarah',
         email: 'sarah@gym.com',
         phone: '7777777777',
@@ -93,6 +106,7 @@ const addDays = (d, n) => {
     const today = new Date();
     const members = await Member.create([
       {
+        owner,
         name: 'Rahul Sharma',
         email: 'rahul@example.com',
         phone: '9000000001',
@@ -104,6 +118,7 @@ const addDays = (d, n) => {
         status: 'active',
       },
       {
+        owner,
         name: 'Priya Singh',
         email: 'priya@example.com',
         phone: '9000000002',
@@ -115,6 +130,7 @@ const addDays = (d, n) => {
         status: 'active',
       },
       {
+        owner,
         name: 'Amit Kumar',
         email: 'amit@example.com',
         phone: '9000000003',
@@ -126,6 +142,7 @@ const addDays = (d, n) => {
         status: 'active',
       },
       {
+        owner,
         name: 'Sneha Patel',
         email: 'sneha@example.com',
         phone: '9000000004',
@@ -140,6 +157,7 @@ const addDays = (d, n) => {
     console.log('Creating payments...');
     await Payment.create([
       {
+        owner,
         member: members[0]._id,
         plan: plans[1]._id,
         amount: plans[1].price,
@@ -148,6 +166,7 @@ const addDays = (d, n) => {
         paymentDate: addDays(today, -45),
       },
       {
+        owner,
         member: members[1]._id,
         plan: plans[0]._id,
         amount: plans[0].price,
@@ -156,6 +175,7 @@ const addDays = (d, n) => {
         paymentDate: addDays(today, -15),
       },
       {
+        owner,
         member: members[2]._id,
         plan: plans[0]._id,
         amount: plans[0].price,
@@ -167,15 +187,15 @@ const addDays = (d, n) => {
 
     console.log('Creating attendance...');
     await Attendance.create([
-      { member: members[0]._id, date: today, status: 'present' },
-      { member: members[1]._id, date: today, status: 'present' },
-      { member: members[0]._id, date: addDays(today, -1), status: 'present' },
-      { member: members[2]._id, date: addDays(today, -1), status: 'present' },
-      { member: members[1]._id, date: addDays(today, -2), status: 'present' },
+      { owner, member: members[0]._id, date: today, status: 'present' },
+      { owner, member: members[1]._id, date: today, status: 'present' },
+      { owner, member: members[0]._id, date: addDays(today, -1), status: 'present' },
+      { owner, member: members[2]._id, date: addDays(today, -1), status: 'present' },
+      { owner, member: members[1]._id, date: addDays(today, -2), status: 'present' },
     ]);
 
     console.log('\nSeed complete.');
-    console.log('Login:  admin@gym.com  /  admin123');
+    console.log('Login:  admin@gym.com  /  admin123  (gym: Iron Paradise)');
     await mongoose.connection.close();
     process.exit(0);
   } catch (err) {
