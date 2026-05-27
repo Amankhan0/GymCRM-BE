@@ -7,6 +7,7 @@ const { notFound, errorHandler } = require('./middleware/error.middleware');
 const { protect } = require('./middleware/auth.middleware');
 const { requireActiveSubscription } = require('./middleware/subscription.middleware');
 const { globalLimiter } = require('./middleware/rateLimit.middleware');
+const { checkBlock } = require('./middleware/progressiveBlock.middleware');
 
 const authRoutes = require('./routes/auth.routes');
 const memberRoutes = require('./routes/member.routes');
@@ -38,7 +39,12 @@ app.use(
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Hard block check runs BEFORE the rate limiter — a banned IP/user shouldn't get to consume
+// even a single token from the rate-limit bucket. checkBlock fails open if MongoDB is down.
+app.use(checkBlock);
+
 // Global per-IP cap — covers every endpoint, including ones with no route-level limit.
+// When tripped, the handler records a strike via progressiveBlock to escalate repeat offenders.
 app.use(globalLimiter);
 
 if (process.env.NODE_ENV !== 'production') {
