@@ -14,9 +14,9 @@ router.use('/upload',    dataGate, require('./upload.routes'));
 router.use('/customers', dataGate, require('./customer.routes'));
 router.use('/suppliers', dataGate, require('./supplier.routes'));
 router.use('/products',  dataGate, require('./product.routes'));
+router.use('/leads',     dataGate, require('./lead.routes'));
 
-// Future Phase 3+:
-// router.use('/leads',            dataGate, require('./lead.routes'));
+// Future Phase 4+:
 // router.use('/quotations',       dataGate, require('./quotation.routes'));
 // router.use('/orders',           dataGate, require('./order.routes'));
 // router.use('/proforma-invoices',dataGate, require('./proformaInvoice.routes'));
