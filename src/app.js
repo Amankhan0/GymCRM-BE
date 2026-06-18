@@ -36,9 +36,19 @@ app.set('trust proxy', 1);
 // CSP is disabled since this is an API server — the SPA hosts its own CSP on Vercel.
 app.use(helmet({ contentSecurityPolicy: false }));
 
+// CLIENT_URL may hold one OR several comma-separated origins (e.g. the gym SPA and the b2b SPA,
+// which are deployed as separate Vercel projects but share this single backend). We allow any of
+// them. Requests with no Origin header (curl, health checks, same-origin) are allowed through too.
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error(`CORS blocked: ${origin} is not an allowed origin`));
+    },
     credentials: true,
   })
 );
