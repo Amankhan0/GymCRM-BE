@@ -26,6 +26,9 @@ const superadminRoutes = require('./routes/superadmin.routes');
 // B2B product routes
 const b2bRoutes = require('./b2b/routes');
 
+// AI product routes (image/video generation SaaS)
+const aiRoutes = require('./ai/routes');
+
 const app = express();
 
 // Render terminates TLS at the proxy. trust proxy=1 lets express-rate-limit see the real client IP
@@ -82,6 +85,10 @@ app.use('/api/superadmin', superadminRoutes);
 // B2B product — all routes namespaced under /api/b2b. The product guard middleware on each
 // route ensures gym users can't accidentally hit b2b endpoints (and vice versa).
 app.use('/api/b2b', b2bRoutes);
+
+// AI product — image/video generation. Namespaced under /api/ai. Credit-based (no subscription
+// gate at the router level; gating happens per-controller).
+app.use('/api/ai', aiRoutes);
 
 // Data routes — protected AND gated by an active trial / subscription.
 const dataGate = [protect, requireActiveSubscription];

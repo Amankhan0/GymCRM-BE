@@ -14,7 +14,7 @@ const userSchema = new mongoose.Schema(
     avatar: { type: String },
 
     // Which product this user belongs to. Defaults to 'gym' so existing rows are treated as gym.
-    product: { type: String, enum: ['gym', 'b2b'], default: 'gym', required: true, index: true },
+    product: { type: String, enum: ['gym', 'b2b', 'ai'], default: 'gym', required: true, index: true },
 
     // Role meaning depends on product:
     //  - gym:  'admin'      (only role; gym owner)
@@ -37,6 +37,14 @@ const userSchema = new mongoose.Schema(
     // subscriptionEndsAt is bumped each time a SubscriptionPayment is approved.
     trialEndsAt: { type: Date },
     subscriptionEndsAt: { type: Date },
+
+    // ─── AI product only (product='ai') ───────────────────────────────────────
+    // Generation credits. Each image costs 1, each video costs more (see ai/config/plans).
+    credits: { type: Number, default: 0 },
+    // Current subscription tier: 'none' until the user subscribes. No free plan.
+    aiPlan: { type: String, enum: ['none', 'starter', 'pro', 'ultra'], default: 'none' },
+    // Admin / lifetime accounts bypass all credit + plan checks.
+    unlimited: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
