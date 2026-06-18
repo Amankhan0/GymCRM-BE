@@ -29,6 +29,8 @@ const formatRemaining = (ms) => {
 
 // Gate every request — if the caller is currently banned, reject before any other middleware runs.
 const checkBlock = async (req, res, next) => {
+  // Dev escape hatch — same flag as the rate limiter. Skip block checks entirely in local dev.
+  if (process.env.DISABLE_RATE_LIMIT === 'true') return next();
   try {
     const key = getKey(req);
     const entry = await BlockedClient.findOne({ key });

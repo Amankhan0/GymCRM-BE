@@ -16,6 +16,11 @@ const buildHandler = (label) => (req, res, _next, options) => {
   res.status(options.statusCode).json(options.message);
 };
 
+// Dev escape hatch: set DISABLE_RATE_LIMIT=true in local .env to bypass all rate limiting +
+// strike recording. NEVER set this in production — it's gated on an explicit flag (not NODE_ENV)
+// so prod stays protected regardless of how NODE_ENV is configured on the host.
+const bypass = () => process.env.DISABLE_RATE_LIMIT === 'true';
+
 // Catches credential stuffing. 10 attempts / 15 minutes / IP. Successful logins are not counted
 // so an honest user who logs in/out quickly isn't punished.
 const loginLimiter = rateLimit({
@@ -26,6 +31,7 @@ const loginLimiter = rateLimit({
   legacyHeaders: false,
   message: tooMany('15 minutes'),
   handler: buildHandler('login'),
+  skip: bypass,
 });
 
 // Slows mass account creation. 5 / hour / IP.
@@ -36,6 +42,7 @@ const signupLimiter = rateLimit({
   legacyHeaders: false,
   message: tooMany('an hour'),
   handler: buildHandler('signup'),
+  skip: bypass,
 });
 
 // Super-admin login is the highest-value target — password is the only auth.
@@ -48,6 +55,7 @@ const superLoginLimiter = rateLimit({
   legacyHeaders: false,
   message: tooMany('15 minutes'),
   handler: buildHandler('super-login'),
+  skip: bypass,
 });
 
 // Keyed by user id (set by `protect`), not IP — prevents a single user from spamming UTRs.
@@ -59,6 +67,7 @@ const paymentSubmitLimiter = rateLimit({
   keyGenerator: (req) => (req.user?._id ? String(req.user._id) : ipKeyGenerator(req.ip)),
   message: tooMany('an hour'),
   handler: buildHandler('payment-submit'),
+  skip: bypass,
 });
 
 // Last line of defence — caps any individual IP at 200 req / 15 min for the whole API.
@@ -69,6 +78,7 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
   message: tooMany('15 minutes'),
   handler: buildHandler('global'),
+  skip: bypass,
 });
 
 module.exports = {
