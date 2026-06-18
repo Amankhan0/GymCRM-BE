@@ -6,7 +6,7 @@ const { WELCOME_CREDITS } = require('../config/plans');
 
 // The special lifetime/unlimited account. Whoever registers (or logs in with) this email is
 // auto-elevated to unlimited access. Override via env in production.
-const ADMIN_EMAIL = (process.env.AI_ADMIN_EMAIL || 'admin@aether.ai').toLowerCase();
+const ADMIN_EMAIL = (process.env.AI_ADMIN_EMAIL || 'admin@nyra.ai').toLowerCase();
 
 const publicUser = (user) => ({
   id: user._id,
@@ -62,7 +62,7 @@ const signup = asyncHandler(async (req, res) => {
   await user.save();
 
   const token = generateToken(user._id, user.role);
-  return success(res, { token, user: publicUser(user) }, 'Welcome to Aether', 201);
+  return success(res, { token, user: publicUser(user) }, 'Welcome to Nyra', 201);
 });
 
 // POST /api/ai/auth/login

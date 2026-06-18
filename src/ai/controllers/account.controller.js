@@ -5,7 +5,7 @@ const { PLANS } = require('../config/plans');
 
 // Owner's UPI details for receiving payments — override in production via env.
 const UPI_ID = process.env.AI_UPI_ID || 'yourname@upi';
-const PAYEE_NAME = process.env.AI_PAYEE_NAME || 'Aether AI';
+const PAYEE_NAME = process.env.AI_PAYEE_NAME || 'Nyra AI';
 
 // GET /api/ai/plans — public pricing + payment (UPI) info for landing + subscription pages.
 const listPlans = asyncHandler(async (req, res) => {
