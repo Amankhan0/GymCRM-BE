@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const SubscriptionPayment = require('../models/SubscriptionPayment');
+const AiPayment = require('../ai/models/AiPayment');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const { success } = require('../utils/apiResponse');
@@ -35,10 +36,14 @@ const login = asyncHandler(async (req, res) => {
   return success(res, { token }, 'Authenticated');
 });
 
-// GET /api/superadmin/stats
+// GET /api/superadmin/stats — counts span ALL products (gym, b2b, ai). Pending + revenue include
+// both the gym/b2b SubscriptionPayment flow and the AI AiPayment flow.
 const getStats = asyncHandler(async (req, res) => {
   const now = new Date();
-  const [totalUsers, activeSubscriptions, trialUsers, pendingRequests, totalRevenueAgg] = await Promise.all([
+  const [
+    totalUsers, activeSubscriptions, trialUsers,
+    pendingSub, pendingAi, revSubAgg, revAiAgg,
+  ] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ subscriptionEndsAt: { $gt: now } }),
     User.countDocuments({
@@ -48,30 +53,32 @@ const getStats = asyncHandler(async (req, res) => {
       ],
     }),
     SubscriptionPayment.countDocuments({ status: 'pending' }),
-    SubscriptionPayment.aggregate([
-      { $match: { status: 'approved' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } },
-    ]),
+    AiPayment.countDocuments({ status: 'pending' }),
+    SubscriptionPayment.aggregate([{ $match: { status: 'approved' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
+    AiPayment.aggregate([{ $match: { status: 'approved' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]),
   ]);
 
   return success(res, {
     totalUsers,
     activeSubscriptions,
     trialUsers,
-    pendingRequests,
-    totalRevenue: totalRevenueAgg[0]?.total || 0,
+    pendingRequests: pendingSub + pendingAi,
+    totalRevenue: (revSubAgg[0]?.total || 0) + (revAiAgg[0]?.total || 0),
   });
 });
 
-// GET /api/superadmin/users
+// GET /api/superadmin/users — every user across all products, tagged with `product`.
 const listUsers = asyncHandler(async (req, res) => {
-  const users = await User.find().sort({ createdAt: -1 }).limit(500);
+  const users = await User.find().sort({ createdAt: -1 }).limit(1000);
   const enriched = users.map((u) => ({
     _id: u._id,
     name: u.name,
     email: u.email,
+    product: u.product,           // gym | b2b | ai  — which website they came from
     gymName: u.gymName,
     phone: u.phone,
+    credits: u.credits,           // ai-only
+    aiPlan: u.aiPlan,             // ai-only
     trialEndsAt: u.trialEndsAt,
     subscriptionEndsAt: u.subscriptionEndsAt,
     state: u.subscriptionState(),
@@ -81,19 +88,36 @@ const listUsers = asyncHandler(async (req, res) => {
 });
 
 // GET /api/superadmin/payment-requests?status=pending|approved|rejected|all
+// Merges gym/b2b SubscriptionPayments AND ai AiPayments into ONE list, each tagged with `product`.
 const listRequests = asyncHandler(async (req, res) => {
   const { status = 'pending' } = req.query;
   const filter = status === 'all' ? {} : { status };
-  const items = await SubscriptionPayment.find(filter)
-    .populate('user', 'name email gymName phone')
-    .sort({ createdAt: -1 })
-    .limit(500);
-  return success(res, items);
+
+  const [subPayments, aiPayments] = await Promise.all([
+    SubscriptionPayment.find(filter).populate('user', 'name email gymName phone product').sort({ createdAt: -1 }).limit(500).lean(),
+    AiPayment.find(filter).populate('user', 'name email product').sort({ createdAt: -1 }).limit(500).lean(),
+  ]);
+
+  const merged = [
+    ...subPayments.map((p) => ({ ...p, product: p.user?.product || 'gym' })),
+    ...aiPayments.map((p) => ({ ...p, product: 'ai' })),
+  ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  return success(res, merged);
 });
 
-// POST /api/superadmin/payment-requests/:id/approve
+// Find a payment request in EITHER collection. Returns { request, kind }.
+const findRequest = async (id) => {
+  const sub = await SubscriptionPayment.findById(id);
+  if (sub) return { request: sub, kind: 'subscription' };
+  const ai = await AiPayment.findById(id);
+  if (ai) return { request: ai, kind: 'ai' };
+  return { request: null };
+};
+
+// POST /api/superadmin/payment-requests/:id/approve — works for gym/b2b AND ai payments.
 const approveRequest = asyncHandler(async (req, res) => {
-  const request = await SubscriptionPayment.findById(req.params.id);
+  const { request, kind } = await findRequest(req.params.id);
   if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
   if (request.status !== 'pending') {
     return res.status(400).json({ success: false, message: `Already ${request.status}` });
@@ -102,13 +126,17 @@ const approveRequest = asyncHandler(async (req, res) => {
   const user = await User.findById(request.user);
   if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-  // Extend subscription from max(now, currentExpiry) by the plan's duration.
   const now = new Date();
   const baseline = user.subscriptionEndsAt && user.subscriptionEndsAt > now ? user.subscriptionEndsAt : now;
   const newExpiry = new Date(baseline);
   newExpiry.setDate(newExpiry.getDate() + request.durationDays);
-
   user.subscriptionEndsAt = newExpiry;
+
+  // AI payments additionally grant credits + set the plan tier.
+  if (kind === 'ai') {
+    user.credits = (user.credits || 0) + request.credits;
+    user.aiPlan = request.planKey;
+  }
   await user.save();
 
   request.status = 'approved';
@@ -120,7 +148,7 @@ const approveRequest = asyncHandler(async (req, res) => {
 
 // POST /api/superadmin/payment-requests/:id/reject  { reason }
 const rejectRequest = asyncHandler(async (req, res) => {
-  const request = await SubscriptionPayment.findById(req.params.id);
+  const { request } = await findRequest(req.params.id);
   if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
   if (request.status !== 'pending') {
     return res.status(400).json({ success: false, message: `Already ${request.status}` });
