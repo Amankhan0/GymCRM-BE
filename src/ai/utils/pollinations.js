@@ -19,13 +19,15 @@ const STYLE_SUFFIX = {
 };
 
 function buildImageUrl(prompt, opts = {}) {
-  const { aspectRatio = '1:1', style = 'none', quality = 'standard', seed } = opts;
+  const { aspectRatio = '1:1', style = 'none', quality = 'standard', model = 'flux', seed } = opts;
+  const { IMAGE_MODELS } = require('../config/models');
+  const polliModel = IMAGE_MODELS[model]?.pollinations || 'flux';
   const [width, height] = ASPECT[aspectRatio] || ASPECT['1:1'];
   const enhanced = `${prompt}${STYLE_SUFFIX[style] || ''}`;
   const params = new URLSearchParams({
     width: String(width),
     height: String(height),
-    model: 'flux',
+    model: polliModel,
     nologo: 'true',
     enhance: quality === 'hd' ? 'true' : 'false',
     seed: String(seed ?? Math.floor(Math.random() * 1_000_000)),

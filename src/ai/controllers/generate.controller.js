@@ -32,7 +32,7 @@ async function resolveImage(prompt, options, user) {
 
 // POST /api/ai/generate/image
 const generateImage = asyncHandler(async (req, res) => {
-  const { prompt, aspectRatio, style, quality } = req.body;
+  const { prompt, aspectRatio, style, quality, model } = req.body;
   if (!prompt || !prompt.trim()) {
     return res.status(400).json({ success: false, message: 'Prompt is required' });
   }
@@ -52,6 +52,7 @@ const generateImage = asyncHandler(async (req, res) => {
     aspectRatio: aspectRatio || '1:1',
     style: style || 'none',
     quality: quality || 'standard',
+    model: model || 'flux',
   };
   // Free → Pollinations (₹0), Paid → Fal.ai premium (falls back to Pollinations if Fal is down).
   const { url, provider } = await resolveImage(prompt.trim(), options, user);

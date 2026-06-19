@@ -3,6 +3,7 @@
 // Requires FAL_KEY in env. If the key is missing or the account is out of balance, the caller
 // falls back to free Pollinations so nothing breaks.
 const { STYLE_SUFFIX } = require('./pollinations');
+const { IMAGE_MODELS } = require('../config/models');
 
 // Fal flux image_size presets.
 const SIZE = {
@@ -15,12 +16,12 @@ async function generateFalImage(prompt, opts = {}) {
   const key = process.env.FAL_KEY;
   if (!key) throw new Error('FAL_KEY not configured');
 
-  const { aspectRatio = '1:1', style = 'none', quality = 'standard' } = opts;
-  // schnell = fast & cheap (standard), dev = higher quality (hd).
-  const model = quality === 'hd' ? 'fal-ai/flux/dev' : 'fal-ai/flux/schnell';
+  const { aspectRatio = '1:1', style = 'none', quality = 'standard', model = 'flux' } = opts;
+  // Use the user-selected model; fall back to quality-based default (schnell=fast, dev=hd).
+  const falModel = IMAGE_MODELS[model]?.fal || (quality === 'hd' ? 'fal-ai/flux/dev' : 'fal-ai/flux/schnell');
   const enhanced = `${prompt}${STYLE_SUFFIX[style] || ''}`;
 
-  const resp = await fetch(`https://fal.run/${model}`, {
+  const resp = await fetch(`https://fal.run/${falModel}`, {
     method: 'POST',
     headers: { Authorization: `Key ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
